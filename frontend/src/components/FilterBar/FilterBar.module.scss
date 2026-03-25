@@ -1,0 +1,69 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.filterBar {
+  display: flex;
+  align-items: flex-end;
+  gap: $space-md;
+  flex-wrap: wrap;
+  padding: $space-md $space-lg;
+  @include card;
+  margin-bottom: $space-lg;
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  min-width: 140px;
+}
+
+.filterLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.filterInput {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: 6px $space-sm;
+  font-size: 13px;
+  outline: none;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+}
+
+.filterSelect {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: 6px $space-sm;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  option {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+}
+
+.filterActions {
+  display: flex;
+  gap: $space-sm;
+  align-items: flex-end;
+}

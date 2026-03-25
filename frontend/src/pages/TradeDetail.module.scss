@@ -1,0 +1,293 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.page {
+  max-width: 960px;
+}
+
+.loading {
+  @include card;
+  padding: $space-2xl;
+  text-align: center;
+  color: $text-secondary;
+}
+
+.backBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-xs;
+  color: $text-secondary;
+  font-size: 13px;
+  margin-bottom: $space-lg;
+  @include transition;
+  cursor: pointer;
+  background: none;
+  border: none;
+  padding: 0;
+
+  &:hover {
+    color: $text-primary;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: $space-lg;
+}
+
+.headerLeft {
+  display: flex;
+  flex-direction: column;
+  gap: $space-sm;
+}
+
+.headerTop {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+}
+
+.symbol {
+  font-size: 28px;
+  font-weight: 700;
+  color: $text-primary;
+  font-family: $font-mono;
+}
+
+.date {
+  font-size: 14px;
+  color: $text-secondary;
+}
+
+.headerActions {
+  display: flex;
+  gap: $space-sm;
+}
+
+// Large P&L display
+.pnlCard {
+  @include card;
+  padding: $space-lg $space-xl;
+  margin-bottom: $space-lg;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pnlMain {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.pnlLabel {
+  font-size: 13px;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.pnlValue {
+  font-size: 36px;
+  font-weight: 700;
+  font-family: $font-mono;
+  letter-spacing: -0.02em;
+}
+
+.pnlPositive {
+  color: $accent-green;
+}
+
+.pnlNegative {
+  color: $accent-red;
+}
+
+.pnlNeutral {
+  color: $accent-yellow;
+}
+
+.pnlSecondary {
+  display: flex;
+  gap: $space-xl;
+}
+
+.pnlStat {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.pnlStatLabel {
+  font-size: 11px;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.pnlStatValue {
+  font-size: 16px;
+  font-family: $font-mono;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+// Details grid
+.detailsGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-lg;
+  margin-bottom: $space-lg;
+}
+
+.detailCard {
+  @include card;
+  padding: $space-lg;
+}
+
+.detailCardTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: $space-md;
+  padding-bottom: $space-sm;
+  border-bottom: 1px solid $border-color;
+}
+
+.detailRows {
+  display: flex;
+  flex-direction: column;
+  gap: $space-sm;
+}
+
+.detailRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.detailLabel {
+  font-size: 13px;
+  color: $text-secondary;
+}
+
+.detailValue {
+  font-size: 13px;
+  font-family: $font-mono;
+  color: $text-primary;
+  font-weight: 500;
+}
+
+.detailValueText {
+  font-size: 13px;
+  color: $text-primary;
+  font-family: $font-sans;
+}
+
+.strategyValue {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: $text-primary;
+}
+
+.strategyDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.ratingStars {
+  color: $accent-yellow;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+.followedPlan {
+  display: flex;
+  align-items: center;
+  gap: $space-xs;
+  font-size: 13px;
+}
+
+.followedPlanYes {
+  color: $accent-green;
+}
+
+.followedPlanNo {
+  color: $accent-red;
+}
+
+// Notes sections
+.notesSection {
+  margin-bottom: $space-lg;
+}
+
+.notesGrid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: $space-md;
+}
+
+.noteCard {
+  @include card;
+  padding: $space-lg;
+}
+
+.noteCardTitle {
+  font-size: 13px;
+  font-weight: 600;
+  color: $text-muted;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: $space-sm;
+}
+
+.noteCardBody {
+  font-size: 14px;
+  color: $text-primary;
+  line-height: 1.6;
+  white-space: pre-wrap;
+}
+
+.noteEmpty {
+  color: $text-muted;
+  font-style: italic;
+}
+
+// Images section
+.imagesSection {
+  margin-bottom: $space-lg;
+}
+
+.sectionTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: $space-md;
+}
+
+// Delete confirmation
+.deleteConfirm {
+  display: flex;
+  gap: $space-sm;
+}
+
+.notFound {
+  @include card;
+  padding: $space-2xl;
+  text-align: center;
+  color: $text-secondary;
+}

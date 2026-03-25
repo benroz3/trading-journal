@@ -1,0 +1,194 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: $space-lg;
+}
+
+.header {
+  h1 {
+    font-size: 22px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  p {
+    font-size: 14px;
+    color: $text-secondary;
+    margin-top: $space-xs;
+  }
+}
+
+// ===== Filter Bar =====
+
+.filterBar {
+  @include card;
+  padding: $space-md $space-lg;
+  display: flex;
+  align-items: flex-end;
+  gap: $space-md;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
+.filterGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  min-width: 140px;
+}
+
+.filterLabel {
+  font-size: 12px;
+  font-weight: 500;
+  color: $text-muted;
+}
+
+.filterInput {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 13px;
+  outline: none;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.filterSelect {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  padding-right: 32px;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  option {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+}
+
+.filterActions {
+  display: flex;
+  gap: $space-sm;
+  align-items: flex-end;
+}
+
+.clearBtn {
+  padding: $space-sm $space-md;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-muted;
+  background: transparent;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  cursor: pointer;
+  @include transition;
+
+  &:hover {
+    color: $text-primary;
+    background: $bg-tertiary;
+  }
+}
+
+// ===== Chart Grid =====
+
+.chartRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-lg;
+
+  @media (max-width: 1024px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+// ===== Empty State =====
+
+.emptyState {
+  @include card;
+  @include flex-center;
+  flex-direction: column;
+  gap: $space-md;
+  padding: $space-2xl;
+  text-align: center;
+}
+
+.emptyIcon {
+  font-size: 48px;
+  opacity: 0.3;
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.emptyText {
+  font-size: 14px;
+  color: $text-muted;
+  max-width: 400px;
+}
+
+// ===== Streaks =====
+
+.streaksRow {
+  display: flex;
+  gap: $space-md;
+  flex-wrap: wrap;
+}
+
+.streakBadge {
+  @include card;
+  padding: $space-sm $space-md;
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  font-size: 13px;
+}
+
+.streakLabel {
+  color: $text-muted;
+}
+
+.streakValue {
+  font-family: $font-mono;
+  font-weight: 600;
+  color: $text-primary;
+}
+
+.streakWin {
+  color: $accent-green;
+}
+
+.streakLoss {
+  color: $accent-red;
+}

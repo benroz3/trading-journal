@@ -1,0 +1,99 @@
+@use 'reset';
+@use 'variables' as *;
+@use 'mixins' as *;
+
+body {
+  background-color: $bg-primary;
+  color: $text-primary;
+  font-family: $font-sans;
+  font-size: 14px;
+  @include scrollbar-dark;
+}
+
+input,
+textarea,
+select {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 14px;
+  outline: none;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background: none;
+  font-size: 14px;
+  @include transition;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+a {
+  @include transition(color);
+
+  &:hover {
+    color: $accent-blue;
+  }
+}
+
+h1 {
+  font-size: 24px;
+  font-weight: 700;
+}
+
+h2 {
+  font-size: 20px;
+  font-weight: 600;
+}
+
+h3 {
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.mono {
+  font-family: $font-mono;
+}
+
+.text-green {
+  color: $accent-green;
+}
+
+.text-red {
+  color: $accent-red;
+}
+
+.text-yellow {
+  color: $accent-yellow;
+}
+
+.text-muted {
+  color: $text-muted;
+}

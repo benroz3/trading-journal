@@ -1,0 +1,296 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+// ===== Button =====
+
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-sm;
+  font-weight: 600;
+  border-radius: $radius-md;
+  @include transition;
+  white-space: nowrap;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.btnPrimary {
+  background: $accent-blue;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: darken($accent-blue, 8%);
+  }
+}
+
+.btnSuccess {
+  background: $accent-green;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: darken($accent-green, 8%);
+  }
+}
+
+.btnDanger {
+  background: $accent-red;
+  color: white;
+
+  &:hover:not(:disabled) {
+    background: darken($accent-red, 8%);
+  }
+}
+
+.btnGhost {
+  background: transparent;
+  color: $text-secondary;
+  border: 1px solid $border-color;
+
+  &:hover:not(:disabled) {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+}
+
+.btnSm {
+  padding: $space-xs $space-sm;
+  font-size: 12px;
+  border-radius: $radius-sm;
+}
+
+.btnMd {
+  padding: $space-sm $space-md;
+  font-size: 14px;
+}
+
+.btnLg {
+  padding: $space-md $space-lg;
+  font-size: 16px;
+}
+
+.btnLoading {
+  position: relative;
+  color: transparent;
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 16px;
+    height: 16px;
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    border-top-color: white;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+// ===== Input =====
+
+.inputWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  width: 100%;
+}
+
+.inputLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.input {
+  width: 100%;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 14px;
+  outline: none;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.inputError {
+  border-color: $accent-red;
+
+  &:focus {
+    border-color: $accent-red;
+  }
+}
+
+.errorMessage {
+  font-size: 12px;
+  color: $accent-red;
+}
+
+// ===== Select =====
+
+.selectWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+  width: 100%;
+}
+
+.selectLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.select {
+  width: 100%;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 14px;
+  outline: none;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239ca3af' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 12px center;
+  padding-right: 36px;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  option {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+}
+
+// ===== Modal =====
+
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: $space-xl;
+}
+
+.modal {
+  background: $bg-secondary;
+  border: 1px solid $border-color;
+  border-radius: $radius-lg;
+  width: 100%;
+  max-width: 520px;
+  max-height: 90vh;
+  overflow-y: auto;
+  @include scrollbar-dark;
+}
+
+.modalHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-md $space-lg;
+  border-bottom: 1px solid $border-color;
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+    color: $text-primary;
+  }
+}
+
+.modalClose {
+  @include flex-center;
+  width: 32px;
+  height: 32px;
+  border-radius: $radius-sm;
+  color: $text-muted;
+  @include transition;
+
+  &:hover {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.modalBody {
+  padding: $space-lg;
+}
+
+// ===== Badge =====
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px $space-sm;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badgeGreen {
+  background: rgba($accent-green, 0.15);
+  color: $accent-green;
+}
+
+.badgeRed {
+  background: rgba($accent-red, 0.15);
+  color: $accent-red;
+}
+
+.badgeYellow {
+  background: rgba($accent-yellow, 0.15);
+  color: $accent-yellow;
+}
+
+.badgePurple {
+  background: rgba($accent-purple, 0.15);
+  color: $accent-purple;
+}
+
+.badgeBlue {
+  background: rgba($accent-blue, 0.15);
+  color: $accent-blue;
+}

@@ -1,0 +1,122 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+.sidebar {
+  width: $sidebar-width;
+  min-width: $sidebar-width;
+  background: $bg-secondary;
+  border-right: 1px solid $border-color;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+}
+
+.logo {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-lg $space-md;
+  border-bottom: 1px solid $border-color;
+
+  svg {
+    width: 28px;
+    height: 28px;
+    color: $accent-blue;
+  }
+
+  h1 {
+    font-size: 16px;
+    font-weight: 700;
+    color: $text-primary;
+    letter-spacing: -0.02em;
+  }
+}
+
+.nav {
+  flex: 1;
+  padding: $space-md $space-sm;
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  padding: $space-sm $space-md;
+  border-radius: $radius-md;
+  color: $text-secondary;
+  font-size: 14px;
+  font-weight: 500;
+  @include transition;
+
+  &:hover {
+    background: $bg-tertiary;
+    color: $text-primary;
+  }
+
+  svg {
+    width: 18px;
+    height: 18px;
+    flex-shrink: 0;
+  }
+}
+
+.navLinkActive {
+  background: rgba($accent-blue, 0.12);
+  color: $accent-blue;
+
+  &:hover {
+    background: rgba($accent-blue, 0.18);
+    color: $accent-blue;
+  }
+}
+
+.sidebarFooter {
+  padding: $space-md;
+  border-top: 1px solid $border-color;
+}
+
+.newTradeBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: $space-sm;
+  width: 100%;
+  padding: $space-sm $space-md;
+  background: $accent-blue;
+  color: white;
+  border-radius: $radius-md;
+  font-size: 14px;
+  font-weight: 600;
+  @include transition;
+
+  &:hover {
+    background: darken($accent-blue, 8%);
+    color: white;
+  }
+
+  svg {
+    width: 16px;
+    height: 16px;
+  }
+}
+
+.main {
+  flex: 1;
+  margin-left: $sidebar-width;
+  padding: $space-xl;
+  min-height: 100vh;
+  overflow-y: auto;
+  @include scrollbar-dark;
+}

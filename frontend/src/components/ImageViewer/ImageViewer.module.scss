@@ -1,0 +1,122 @@
+@use '../../styles/variables' as *;
+@use '../../styles/mixins' as *;
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: $space-sm;
+}
+
+.thumbnail {
+  aspect-ratio: 1;
+  border-radius: $radius-sm;
+  overflow: hidden;
+  border: 1px solid $border-color;
+  cursor: pointer;
+  @include transition;
+  background: $bg-tertiary;
+
+  &:hover {
+    border-color: $accent-blue;
+    transform: scale(1.03);
+  }
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+}
+
+.lightboxOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(8px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: $space-xl;
+}
+
+.lightboxContent {
+  position: relative;
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-sm;
+}
+
+.lightboxImage {
+  max-width: 100%;
+  max-height: 80vh;
+  object-fit: contain;
+  border-radius: $radius-md;
+}
+
+.lightboxCaption {
+  color: $text-secondary;
+  font-size: 13px;
+}
+
+.lightboxClose {
+  position: fixed;
+  top: $space-lg;
+  right: $space-lg;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: $text-primary;
+  @include flex-center;
+  @include transition;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  svg {
+    width: 20px;
+    height: 20px;
+  }
+}
+
+.lightboxNav {
+  position: fixed;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  color: $text-primary;
+  @include flex-center;
+  @include transition;
+  cursor: pointer;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.2);
+  }
+
+  svg {
+    width: 22px;
+    height: 22px;
+  }
+}
+
+.lightboxPrev {
+  left: $space-lg;
+}
+
+.lightboxNext {
+  right: $space-lg;
+}
+
+.empty {
+  color: $text-muted;
+  font-size: 14px;
+}

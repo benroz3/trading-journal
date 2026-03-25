@@ -1,0 +1,366 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.page {
+  max-width: 860px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-lg;
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  p {
+    color: $text-secondary;
+    font-size: 14px;
+    margin-top: $space-xs;
+  }
+}
+
+.headerActions {
+  display: flex;
+  gap: $space-sm;
+}
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-lg;
+}
+
+.section {
+  @include card;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-md $space-lg;
+  border-bottom: 1px solid $border-color;
+  cursor: pointer;
+  user-select: none;
+  @include transition;
+
+  &:hover {
+    background: rgba($accent-blue, 0.03);
+  }
+
+  h2 {
+    font-size: 15px;
+    font-weight: 600;
+    color: $text-primary;
+    display: flex;
+    align-items: center;
+    gap: $space-sm;
+  }
+}
+
+.sectionToggle {
+  color: $text-muted;
+  @include transition;
+
+  svg {
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.sectionToggleOpen {
+  transform: rotate(180deg);
+}
+
+.sectionBody {
+  padding: $space-lg;
+}
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: $space-md;
+}
+
+.fieldGrid3 {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: $space-md;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.directionGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.directionLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.directionButtons {
+  display: flex;
+  gap: $space-sm;
+}
+
+.directionBtn {
+  flex: 1;
+  padding: $space-sm $space-md;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  font-size: 14px;
+  font-weight: 600;
+  text-align: center;
+  cursor: pointer;
+  @include transition;
+  background: $bg-tertiary;
+  color: $text-secondary;
+
+  &:hover {
+    border-color: $text-muted;
+  }
+}
+
+.directionBtnLong {
+  &.directionBtnActive {
+    background: rgba($accent-green, 0.15);
+    border-color: $accent-green;
+    color: $accent-green;
+  }
+}
+
+.directionBtnShort {
+  &.directionBtnActive {
+    background: rgba($accent-red, 0.15);
+    border-color: $accent-red;
+    color: $accent-red;
+  }
+}
+
+.computed {
+  font-family: $font-mono;
+  color: $text-primary;
+  font-size: 14px;
+}
+
+.computedField {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.computedLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.computedValue {
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  padding: $space-sm $space-md;
+  font-family: $font-mono;
+  font-size: 14px;
+  color: $text-primary;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+}
+
+.computedPositive {
+  color: $accent-green;
+}
+
+.computedNegative {
+  color: $accent-red;
+}
+
+.textarea {
+  width: 100%;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 14px;
+  font-family: $font-sans;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.textareaWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.textareaLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+// Star rating
+.starGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.starLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.stars {
+  display: flex;
+  gap: 2px;
+}
+
+.star {
+  cursor: pointer;
+  color: $border-color;
+  @include transition;
+
+  &:hover {
+    color: $accent-yellow;
+  }
+
+  svg {
+    width: 24px;
+    height: 24px;
+  }
+}
+
+.starActive {
+  color: $accent-yellow;
+}
+
+// Checkbox toggle
+.checkboxGroup {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.checkboxLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+  cursor: pointer;
+}
+
+.toggleTrack {
+  width: 44px;
+  height: 24px;
+  border-radius: 12px;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  position: relative;
+  @include transition;
+}
+
+.toggleTrackActive {
+  background: $accent-green;
+  border-color: $accent-green;
+}
+
+.toggleThumb {
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: white;
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  @include transition(transform);
+}
+
+.toggleThumbActive {
+  transform: translateX(20px);
+}
+
+.toggleText {
+  font-size: 14px;
+  color: $text-primary;
+}
+
+.formFooter {
+  display: flex;
+  gap: $space-sm;
+  justify-content: flex-end;
+  padding-top: $space-md;
+}
+
+.loading {
+  @include card;
+  padding: $space-2xl;
+  text-align: center;
+  color: $text-secondary;
+}
+
+.monoInput {
+  input {
+    font-family: $font-mono;
+  }
+}
+
+.inputLabel {
+  display: block;
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+  margin-bottom: $space-xs;
+}
+
+.textInput {
+  width: 100%;
+  padding: 10px 12px;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  font-size: 14px;
+  font-family: $font-sans;
+  box-sizing: border-box;
+  @include transition;
+
+  &::placeholder {
+    color: $text-muted;
+  }
+
+  &:focus {
+    outline: none;
+    border-color: $accent-blue;
+  }
+}

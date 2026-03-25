@@ -1,0 +1,211 @@
+@use '../styles/variables' as *;
+@use '../styles/mixins' as *;
+
+.page {
+  max-width: 1000px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-lg;
+
+  h1 {
+    font-size: 24px;
+    font-weight: 700;
+    color: $text-primary;
+  }
+
+  p {
+    color: $text-secondary;
+    font-size: 14px;
+    margin-top: $space-xs;
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $space-md;
+}
+
+.card {
+  @include card;
+  padding: $space-lg;
+  display: flex;
+  flex-direction: column;
+  gap: $space-sm;
+  @include transition;
+
+  &:hover {
+    border-color: $text-muted;
+  }
+}
+
+.cardTop {
+  display: flex;
+  align-items: center;
+  gap: $space-sm;
+}
+
+.colorDot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.cardName {
+  font-size: 16px;
+  font-weight: 600;
+  color: $text-primary;
+  flex: 1;
+  @include truncate;
+}
+
+.cardDesc {
+  font-size: 13px;
+  color: $text-secondary;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.cardRules {
+  font-size: 12px;
+  color: $text-muted;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  font-style: italic;
+}
+
+.cardActions {
+  display: flex;
+  gap: $space-sm;
+  margin-top: $space-sm;
+  padding-top: $space-sm;
+  border-top: 1px solid $border-color;
+}
+
+// Strategy Form inside Modal
+
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: $space-md;
+}
+
+.textarea {
+  width: 100%;
+  background: $bg-tertiary;
+  border: 1px solid $border-color;
+  border-radius: $radius-sm;
+  color: $text-primary;
+  padding: $space-sm $space-md;
+  font-size: 14px;
+  font-family: $font-sans;
+  outline: none;
+  resize: vertical;
+  min-height: 80px;
+  @include transition(border-color);
+
+  &:focus {
+    border-color: $accent-blue;
+  }
+
+  &::placeholder {
+    color: $text-muted;
+  }
+}
+
+.textareaWrapper {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.textareaLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.colorPicker {
+  display: flex;
+  flex-direction: column;
+  gap: $space-xs;
+}
+
+.colorLabel {
+  font-size: 13px;
+  font-weight: 500;
+  color: $text-secondary;
+}
+
+.colorSwatches {
+  display: flex;
+  gap: $space-sm;
+  flex-wrap: wrap;
+}
+
+.colorSwatch {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  @include transition;
+
+  &:hover {
+    transform: scale(1.15);
+  }
+}
+
+.colorSwatchActive {
+  border-color: $text-primary;
+  box-shadow: 0 0 0 2px $bg-secondary, 0 0 0 4px currentColor;
+}
+
+.formActions {
+  display: flex;
+  gap: $space-sm;
+  justify-content: flex-end;
+  margin-top: $space-sm;
+}
+
+// Empty state
+
+.empty {
+  @include card;
+  padding: $space-2xl;
+  text-align: center;
+}
+
+.emptyIcon {
+  color: $text-muted;
+  margin-bottom: $space-md;
+
+  svg {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.emptyTitle {
+  font-size: 18px;
+  font-weight: 600;
+  color: $text-primary;
+  margin-bottom: $space-xs;
+}
+
+.emptyText {
+  color: $text-secondary;
+  font-size: 14px;
+  margin-bottom: $space-lg;
+}
