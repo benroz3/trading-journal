@@ -128,7 +128,7 @@ function TradeForm() {
       symbol: t.symbol,
       direction: t.direction,
       strategy_id: t.strategy_id ? String(t.strategy_id) : '',
-      contracts: t.contracts || 1,
+      contracts: Number(t.contracts) || 1,
       entry_price: t.entry_price != null ? String(t.entry_price) : '',
       exit_price: t.exit_price != null ? String(t.exit_price) : '',
       stop_loss_price: t.stop_loss_price != null ? String(t.stop_loss_price) : '',

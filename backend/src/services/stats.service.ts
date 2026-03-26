@@ -36,8 +36,8 @@ export async function getSummary(filters: StatFilters = {}): Promise<TradeSummar
   const result = await query<Record<string, string | null>>(
     `SELECT
       COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS win_rate,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'SL')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS loss_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'SL')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS loss_rate,
       ROUND(COUNT(*) FILTER (WHERE t.outcome = 'BE')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS be_rate,
       COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
       COALESCE(AVG(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0) AS avg_winner,
@@ -114,7 +114,7 @@ export async function getByStrategy(filters: StatFilters = {}): Promise<Strategy
       s.name AS strategy_name,
       s.color,
       COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS win_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
       COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
       COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
       CASE
@@ -151,7 +151,7 @@ export async function getBySymbol(filters: StatFilters = {}): Promise<SymbolStat
     `SELECT
       t.symbol,
       COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS win_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
       COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
       COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
       CASE
@@ -185,7 +185,7 @@ export async function getBySession(filters: StatFilters = {}): Promise<SessionSt
     `SELECT
       t.session,
       COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS win_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
       COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
       COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
       CASE
@@ -220,7 +220,7 @@ export async function getByDayOfWeek(filters: StatFilters = {}): Promise<DayOfWe
       TO_CHAR(t.trade_date, 'Day') AS day_name,
       EXTRACT(ISODOW FROM t.trade_date)::int AS day_number,
       COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS win_rate,
+      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
       COALESCE(SUM(t.pnl_net), 0) AS total_pnl
     FROM trades t
     ${where}
@@ -309,7 +309,7 @@ export async function getStreaks(filters: StatFilters = {}): Promise<StreakStats
         CASE WHEN t.outcome = 'TP' THEN 'WIN' ELSE 'LOSS' END AS result,
         ROW_NUMBER() OVER (ORDER BY t.trade_date, t.created_at) AS rn
       FROM trades t
-      ${where}
+      ${where ? where + " AND t.outcome != 'BE'" : "WHERE t.outcome != 'BE'"}
     ),
     grouped AS (
       SELECT

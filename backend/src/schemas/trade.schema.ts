@@ -21,9 +21,9 @@ export const createTradeSchema = z.object({
   exit_price: z.number().positive().nullable().optional(),
   stop_loss_price: z.number().positive().nullable().optional(),
   take_profit_price: z.number().positive().nullable().optional(),
-  contracts: z.number().positive().optional().default(1),
-  tick_size: z.number().positive().nullable().optional(),
-  tick_value: z.number().positive().nullable().optional(),
+  contracts: z.coerce.number().positive().optional().default(1),
+  tick_size: z.coerce.number().positive().nullable().optional(),
+  tick_value: z.coerce.number().positive().nullable().optional(),
   rr_planned: z.number().nullable().optional(),
   rr_actual: z.number().nullable().optional(),
   pnl_ticks: z.number().nullable().optional(),
@@ -41,10 +41,8 @@ export const createTradeSchema = z.object({
   followed_plan: z.boolean().optional().default(true),
 });
 
-export const updateTradeSchema = createTradeSchema.partial().refine(
-  (data) => Object.keys(data).length > 0,
-  { message: 'At least one field must be provided for update' }
-);
+// Update uses the same schema as create since the frontend always sends the full object
+export const updateTradeSchema = createTradeSchema;
 
 export type CreateTradeInput = z.infer<typeof createTradeSchema>;
 export type UpdateTradeInput = z.infer<typeof updateTradeSchema>;
