@@ -64,7 +64,7 @@ const defaultForm: FormState = {
   rr_actual: '',
   pnl_ticks: '',
   pnl_dollars: '',
-  fees: '5.00',
+  fees: '0',
   pnl_net: '',
   tick_size: '',
   tick_value: '',
@@ -105,6 +105,7 @@ function TradeForm() {
   const [form, setForm] = useState<FormState>(defaultForm);
   const [imageFiles, setImageFiles] = useState<File[]>([]);
   const [submitting, setSubmitting] = useState(false);
+  const [feesManuallySet, setFeesManuallySet] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({
     core: true,
     prices: true,
@@ -206,13 +207,15 @@ function TradeForm() {
     form.fees,
   ]);
 
-  // Auto-update fees when contracts change
+  // Auto-update fees when contracts change (only if user hasn't manually set fees)
   useEffect(() => {
-    setForm((p) => ({
-      ...p,
-      fees: String((2.5 * 2 * (p.contracts || 1)).toFixed(2)),
-    }));
-  }, [form.contracts]);
+    if (!feesManuallySet) {
+      setForm((p: FormState) => ({
+        ...p,
+        fees: String((2.5 * 2 * (p.contracts || 1)).toFixed(2)),
+      }));
+    }
+  }, [form.contracts, feesManuallySet]);
 
   const toggleSection = (key: string) =>
     setOpenSections((p) => ({ ...p, [key]: !p[key] }));
@@ -517,8 +520,12 @@ function TradeForm() {
                     label="Fees"
                     type="number"
                     step="0.01"
+                    min="0"
                     value={form.fees}
-                    onChange={(e) => updateField('fees', e.target.value)}
+                    onChange={(e) => {
+                      setFeesManuallySet(true);
+                      updateField('fees', e.target.value);
+                    }}
                   />
                 </div>
 

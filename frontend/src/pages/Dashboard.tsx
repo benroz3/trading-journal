@@ -179,6 +179,14 @@ function Dashboard() {
                   {streaks.max_loss_streak}
                 </span>
               </div>
+              {summary && summary.be_rate > 0 && (
+                <div className={styles.streakBadge}>
+                  <span className={styles.streakLabel}>Breakeven Trades:</span>
+                  <span className={`${styles.streakValue} ${styles.streakBe}`}>
+                    {Math.round(summary.total_trades * summary.be_rate / 100)}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
