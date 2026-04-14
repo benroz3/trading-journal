@@ -60,10 +60,13 @@
   }
 }
 
+// Explicit height bounds for Recharts ResponsiveContainer (height: 100%);
+// flex:1 + % height can grow without a definite parent on large viewports.
 .chartBody {
-  flex: 1;
-  min-height: 0;
   width: 100%;
+  flex-shrink: 0;
+  height: clamp(260px, 36vh, 400px);
+  min-height: 0;
 }
 
 .emptyChart {
