@@ -170,11 +170,17 @@ export async function update(
     merged.contracts = parseInt(merged.contracts as string, 10);
   }
 
-  // Reset computed fields if relevant inputs changed so they get recomputed
-  if (data.contracts !== undefined || data.entry_price !== undefined || data.exit_price !== undefined || data.tick_size !== undefined) {
+  // Reset derived fields when sizing/price context changes.
+  // Keep pnl_dollars intact because it's the primary user-entered P&L value.
+  if (
+    data.contracts !== undefined ||
+    data.entry_price !== undefined ||
+    data.exit_price !== undefined ||
+    data.tick_size !== undefined ||
+    data.tick_value !== undefined
+  ) {
     if (data.fees === undefined) merged.fees = undefined as unknown;
     merged.pnl_ticks = undefined as unknown;
-    merged.pnl_dollars = undefined as unknown;
     merged.pnl_net = undefined as unknown;
   }
 
