@@ -2,6 +2,16 @@
 
 Local trading journal app for futures & commodities. Track trades, upload chart screenshots, and analyze performance.
 
+## Firebase setup
+
+Create a Firebase project and enable **Firestore** and **Storage**. Generate a **service account** JSON key (Project settings → Service accounts).
+
+Copy `.env.example` to `.env` and set:
+
+- `FIREBASE_STORAGE_BUCKET` — usually `your-project-id.appspot.com`
+- `FIREBASE_SERVICE_ACCOUNT_JSON` — entire JSON on **one line**, **or**
+- `GOOGLE_APPLICATION_CREDENTIALS` — path to the JSON file if you mount it into the backend container
+
 ## Run
 
 ```bash
@@ -16,13 +26,7 @@ Open **http://localhost:3000**
 docker compose down
 ```
 
-Data persists between restarts (stored in Docker volumes).
-
-To delete all data:
-
-```bash
-docker compose down -v
-```
+Data lives in your Firebase project (not local Docker volumes).
 
 ## Ports
 
@@ -30,4 +34,3 @@ docker compose down -v
 |----------|------|
 | Frontend | 3000 |
 | Backend  | 4000 |
-| Postgres | 5432 |

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import * as strategiesService from '../services/strategies.service';
+import { StrategyNameConflictError } from '../utils/firestoreNormalize';
 
 export async function getAll(
   _req: Request,
@@ -61,7 +62,7 @@ export async function update(
     }
     res.json(strategy);
   } catch (err: unknown) {
-    if (err instanceof Error && (err as Error & { code?: string }).code === '23505') {
+    if (err instanceof StrategyNameConflictError) {
       res.status(409).json({ error: 'A strategy with that name already exists' });
       return;
     }

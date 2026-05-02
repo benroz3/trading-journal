@@ -7,7 +7,9 @@ export function errorHandler(
   res: Response,
   _next: NextFunction
 ): void {
-  console.error('[Error]', err);
+  const anyErr = err as Error & { code?: number | string; details?: string };
+  console.error('[Error]', err.message, anyErr.code ? `code=${anyErr.code}` : '', anyErr.details ?? '');
+  console.error(err.stack);
 
   if (err instanceof ZodError) {
     res.status(400).json({
@@ -36,6 +38,11 @@ export function errorHandler(
 
   const statusCode = (err as Error & { statusCode?: number }).statusCode || 500;
   const message = statusCode === 500 ? 'Internal Server Error' : err.message;
+  const grpcCode = anyErr.code;
 
-  res.status(statusCode).json({ error: message });
+  res.status(statusCode).json({
+    error: message,
+    ...(grpcCode !== undefined && grpcCode !== '' ? { code: grpcCode } : {}),
+    ...(process.env.NODE_ENV !== 'production' ? { detail: err.message } : {}),
+  });
 }

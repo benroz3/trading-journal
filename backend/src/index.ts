@@ -1,19 +1,15 @@
-import dotenv from 'dotenv';
-dotenv.config();
+import 'dotenv/config';
+import './config/firebase';
 
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
 import morgan from 'morgan';
 import { env } from './config/env';
-import { runMigrations } from './db/migrate';
 import routes from './routes';
 import { errorHandler } from './middleware/errorHandler';
 
 async function main(): Promise<void> {
-  // Run database migrations
-  await runMigrations();
-
   const app = express();
 
   // Security headers

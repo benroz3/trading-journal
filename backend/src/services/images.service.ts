@@ -1,111 +1,111 @@
 import crypto from 'crypto';
-import fs from 'fs';
-import path from 'path';
 import sharp from 'sharp';
-import { query } from '../config/database';
+import { FieldValue } from 'firebase-admin/firestore';
+import { bucket, db } from '../config/firebase';
 import { TradeImage } from '../types';
+import { tradeImageFromFirestore } from '../utils/firestoreNormalize';
 
-const UPLOADS_DIR = path.resolve(__dirname, '../../uploads');
+const IMAGES = 'trade_images';
 
-function ensureUploadsDir(): void {
-  if (!fs.existsSync(UPLOADS_DIR)) {
-    fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-  }
+export async function deleteAllForTrade(tradeId: string): Promise<void> {
+  const snap = await db.collection(IMAGES).where('trade_id', '==', tradeId).get();
+  await Promise.all(
+    snap.docs.map(async (doc) => {
+      const path = doc.data().storage_path as string | undefined;
+      if (path) {
+        try {
+          await bucket.file(path).delete();
+        } catch {
+          /* ignore missing file */
+        }
+      }
+      await doc.ref.delete();
+    })
+  );
 }
 
 export async function upload(
   tradeId: string,
   files: Express.Multer.File[]
 ): Promise<TradeImage[]> {
-  ensureUploadsDir();
-
-  // Verify trade exists
-  const tradeCheck = await query('SELECT id FROM trades WHERE id = $1', [tradeId]);
-  if (tradeCheck.rows.length === 0) {
+  const tradeDoc = await db.collection('trades').doc(tradeId).get();
+  if (!tradeDoc.exists) {
     const err = new Error('Trade not found') as Error & { statusCode: number };
     err.statusCode = 404;
     throw err;
   }
 
-  // Get current max sort_order
-  const sortResult = await query<{ max_sort: number | null }>(
-    'SELECT MAX(sort_order) as max_sort FROM trade_images WHERE trade_id = $1',
-    [tradeId]
-  );
-  let sortOrder = (sortResult.rows[0].max_sort ?? -1) + 1;
+  const existing = await db.collection(IMAGES).where('trade_id', '==', tradeId).get();
+  let sortOrder =
+    existing.docs.reduce((max, d) => Math.max(max, (d.data().sort_order as number) ?? 0), -1) + 1;
 
   const results: TradeImage[] = [];
 
   for (const file of files) {
     const id = crypto.randomUUID();
     const filename = `${id}.webp`;
-    const filePath = path.join(UPLOADS_DIR, filename);
+    const storagePath = `trade-images/${tradeId}/${filename}`;
 
-    // Process image with Sharp
     const processed = await sharp(file.buffer)
       .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
       .webp({ quality: 80 })
       .toBuffer();
 
-    fs.writeFileSync(filePath, processed);
+    await bucket.file(storagePath).save(processed, {
+      contentType: 'image/webp',
+      resumable: false,
+      metadata: { cacheControl: 'public, max-age=31536000' },
+    });
 
-    const result = await query<TradeImage>(
-      `INSERT INTO trade_images (id, trade_id, filename, original_name, mime_type, file_size, sort_order)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING *`,
-      [id, tradeId, filename, file.originalname, 'image/webp', processed.length, sortOrder++]
-    );
+    const doc = {
+      trade_id: tradeId,
+      filename,
+      original_name: file.originalname,
+      mime_type: 'image/webp',
+      file_size: processed.length,
+      sort_order: sortOrder++,
+      storage_path: storagePath,
+      created_at: FieldValue.serverTimestamp(),
+    };
 
-    results.push(result.rows[0]);
+    await db.collection(IMAGES).doc(id).set(doc);
+    const saved = await db.collection(IMAGES).doc(id).get();
+    results.push(tradeImageFromFirestore(saved.id, saved.data()!));
   }
 
   return results;
 }
 
 export async function remove(id: string): Promise<boolean> {
-  const result = await query<TradeImage>(
-    'SELECT * FROM trade_images WHERE id = $1',
-    [id]
-  );
+  const ref = db.collection(IMAGES).doc(id);
+  const doc = await ref.get();
+  if (!doc.exists) return false;
 
-  if (result.rows.length === 0) return false;
-
-  const image = result.rows[0];
-  const filePath = path.join(UPLOADS_DIR, image.filename);
-
-  // Delete from DB first
-  await query('DELETE FROM trade_images WHERE id = $1', [id]);
-
-  // Delete file from disk (non-blocking, ignore errors)
-  try {
-    if (fs.existsSync(filePath)) {
-      fs.unlinkSync(filePath);
+  const storagePath = doc.data()!.storage_path as string | undefined;
+  if (storagePath) {
+    try {
+      await bucket.file(storagePath).delete();
+    } catch {
+      console.warn(`[Images] Failed to delete storage object ${storagePath}`);
     }
-  } catch (err) {
-    console.warn(`[Images] Failed to delete file ${filePath}:`, err);
   }
 
+  await ref.delete();
   return true;
 }
 
-export async function getFilePath(
-  id: string
-): Promise<{ filePath: string; mimeType: string; filename: string } | null> {
-  const result = await query<TradeImage>(
-    'SELECT * FROM trade_images WHERE id = $1',
-    [id]
-  );
+async function getStoragePath(id: string): Promise<string | null> {
+  const doc = await db.collection(IMAGES).doc(id).get();
+  if (!doc.exists) return null;
+  return (doc.data()!.storage_path as string) ?? null;
+}
 
-  if (result.rows.length === 0) return null;
-
-  const image = result.rows[0];
-  const filePath = path.join(UPLOADS_DIR, image.filename);
-
-  if (!fs.existsSync(filePath)) return null;
-
-  return {
-    filePath,
-    mimeType: image.mime_type,
-    filename: image.original_name,
-  };
+export async function getSignedReadUrl(id: string): Promise<string | null> {
+  const path = await getStoragePath(id);
+  if (!path) return null;
+  const [url] = await bucket.file(path).getSignedUrl({
+    action: 'read',
+    expires: Date.now() + 3600 * 1000,
+  });
+  return url;
 }

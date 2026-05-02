@@ -1,354 +1,374 @@
-import { query } from '../config/database';
+import type { DocumentData } from 'firebase-admin/firestore';
+import { db } from '../config/firebase';
 import {
-  StatFilters, TradeSummary, StrategyStats, SymbolStats,
-  SessionStats, DayOfWeekStats, EquityCurvePoint, CalendarEntry, StreakStats,
+  StatFilters,
+  TradeSummary,
+  StrategyStats,
+  SymbolStats,
+  SessionStats,
+  DayOfWeekStats,
+  EquityCurvePoint,
+  CalendarEntry,
+  StreakStats,
+  TradeOutcome,
+  TradingSession,
 } from '../types';
+import { timestampToIso, toFloat } from '../utils/firestoreNormalize';
 
-function buildWhereClause(filters: StatFilters): { where: string; params: unknown[] } {
-  const conditions: string[] = [];
-  const params: unknown[] = [];
-  let idx = 1;
+interface StatRow {
+  id: string;
+  trade_date: string;
+  created_at: string;
+  outcome: TradeOutcome;
+  pnl_net: number;
+  fees: number;
+  rr_actual: number | null;
+  rating: number | null;
+  followed_plan: boolean;
+  entry_time: string | null;
+  exit_time: string | null;
+  strategy_id: string | null;
+  symbol: string;
+  session: TradingSession | null;
+}
 
-  if (filters.from) {
-    conditions.push(`t.trade_date >= $${idx++}`);
-    params.push(filters.from);
+function passesFilters(t: DocumentData, filters: StatFilters): boolean {
+  const date = String(t.trade_date ?? '');
+  if (filters.from && date < filters.from) return false;
+  if (filters.to && date > filters.to) return false;
+  if (filters.strategy_id && t.strategy_id !== filters.strategy_id) return false;
+  if (
+    filters.symbol &&
+    String(t.symbol ?? '').toUpperCase() !== filters.symbol.toUpperCase()
+  ) {
+    return false;
   }
-  if (filters.to) {
-    conditions.push(`t.trade_date <= $${idx++}`);
-    params.push(filters.to);
-  }
-  if (filters.strategy_id) {
-    conditions.push(`t.strategy_id = $${idx++}`);
-    params.push(filters.strategy_id);
-  }
-  if (filters.symbol) {
-    conditions.push(`t.symbol = $${idx++}`);
-    params.push(filters.symbol.toUpperCase());
-  }
+  return true;
+}
 
-  const where = conditions.length > 0 ? `WHERE ${conditions.join(' AND ')}` : '';
-  return { where, params };
+async function loadStatRows(filters: StatFilters): Promise<StatRow[]> {
+  const snap = await db.collection('trades').get();
+  const rows: StatRow[] = [];
+  for (const doc of snap.docs) {
+    const t = doc.data();
+    if (!passesFilters(t, filters)) continue;
+    rows.push({
+      id: doc.id,
+      trade_date: String(t.trade_date ?? ''),
+      created_at: timestampToIso(t.created_at),
+      outcome: t.outcome as TradeOutcome,
+      pnl_net: toFloat(t.pnl_net),
+      fees: toFloat(t.fees),
+      rr_actual: t.rr_actual != null ? toFloat(t.rr_actual) : null,
+      rating: t.rating ?? null,
+      followed_plan: t.followed_plan !== false,
+      entry_time: t.entry_time ?? null,
+      exit_time: t.exit_time ?? null,
+      strategy_id: t.strategy_id ?? null,
+      symbol: String(t.symbol ?? ''),
+      session: (t.session ?? null) as TradingSession | null,
+    });
+  }
+  return rows;
+}
+
+function durationMinutes(entry: string | null, exit: string | null): number | null {
+  if (!entry || !exit) return null;
+  const a = new Date(entry).getTime();
+  const b = new Date(exit).getTime();
+  if (Number.isNaN(a) || Number.isNaN(b)) return null;
+  return (b - a) / 60000;
+}
+
+function isoDayMeta(tradeDate: string): { day_number: number; day_name: string } {
+  const d = new Date(`${tradeDate}T12:00:00Z`);
+  const js = d.getUTCDay();
+  const isoDow = js === 0 ? 7 : js;
+  const names = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+  return { day_number: isoDow, day_name: names[isoDow - 1] };
+}
+
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
 }
 
 export async function getSummary(filters: StatFilters = {}): Promise<TradeSummary> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const n = rows.length;
+  const tpSl = rows.filter((r) => r.outcome === 'TP' || r.outcome === 'SL');
+  const tp = rows.filter((r) => r.outcome === 'TP');
+  const sl = rows.filter((r) => r.outcome === 'SL');
+  const be = rows.filter((r) => r.outcome === 'BE');
 
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'SL')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS loss_rate,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'BE')::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS be_rate,
-      COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
-      COALESCE(AVG(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0) AS avg_winner,
-      COALESCE(AVG(t.pnl_net) FILTER (WHERE t.outcome = 'SL'), 0) AS avg_loser,
-      COALESCE(MAX(t.pnl_net), 0) AS largest_winner,
-      COALESCE(MIN(t.pnl_net), 0) AS largest_loser,
-      COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
-      CASE
-        WHEN COALESCE(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 0) = 0 THEN 0
-        ELSE ROUND(
-          COALESCE(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0)::numeric /
-          NULLIF(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 1), 2
-        )
-      END AS profit_factor,
-      COALESCE(AVG(t.pnl_net), 0) AS expectancy,
-      COALESCE(AVG(EXTRACT(EPOCH FROM (t.exit_time - t.entry_time)) / 60) FILTER (WHERE t.exit_time IS NOT NULL AND t.entry_time IS NOT NULL), NULL) AS avg_trade_duration,
-      ROUND(COUNT(*) FILTER (WHERE t.followed_plan = TRUE)::numeric / NULLIF(COUNT(*), 0) * 100, 2) AS plan_adherence,
-      AVG(t.rating) AS avg_rating,
-      COALESCE(SUM(t.fees), 0) AS total_fees
-    FROM trades t
-    ${where}`,
-    params
-  );
+  const winRate =
+    tpSl.length === 0 ? 0 : round2((tp.length / tpSl.length) * 100);
+  const lossRate =
+    tpSl.length === 0 ? 0 : round2((sl.length / tpSl.length) * 100);
+  const beRate = n === 0 ? 0 : round2((be.length / n) * 100);
 
-  const row = result.rows[0];
+  const totalPnl = rows.reduce((s, r) => s + r.pnl_net, 0);
+  const tpPnls = tp.map((r) => r.pnl_net);
+  const slPnls = sl.map((r) => r.pnl_net);
+  const avgWinner = tp.length === 0 ? 0 : tpPnls.reduce((a, b) => a + b, 0) / tp.length;
+  const avgLoser = sl.length === 0 ? 0 : slPnls.reduce((a, b) => a + b, 0) / sl.length;
+  const largestWinner = tpPnls.length === 0 ? 0 : Math.max(...tpPnls);
+  const largestLoser = slPnls.length === 0 ? 0 : Math.min(...slPnls);
 
-  // Compute max drawdown separately
-  const ddResult = await query<{ max_drawdown: string | null }>(
-    `WITH cumulative AS (
-      SELECT
-        t.trade_date,
-        SUM(t.pnl_net) OVER (ORDER BY t.trade_date, t.created_at) AS cum_pnl
-      FROM trades t
-      ${where}
-    ),
-    peaks AS (
-      SELECT
-        trade_date,
-        cum_pnl,
-        MAX(cum_pnl) OVER (ORDER BY trade_date) AS peak
-      FROM cumulative
-    )
-    SELECT COALESCE(MIN(cum_pnl - peak), 0) AS max_drawdown FROM peaks`,
-    params
-  );
+  const rrVals = rows.map((r) => r.rr_actual).filter((v): v is number => v != null && !Number.isNaN(v));
+  const avgRr = rrVals.length === 0 ? 0 : rrVals.reduce((a, b) => a + b, 0) / rrVals.length;
+
+  const sumTp = tp.reduce((s, r) => s + r.pnl_net, 0);
+  const sumSlAbs = Math.abs(sl.reduce((s, r) => s + r.pnl_net, 0));
+  const profitFactor = sumSlAbs === 0 ? 0 : round2(sumTp / sumSlAbs);
+
+  const expectancy = n === 0 ? 0 : totalPnl / n;
+
+  const durs = rows
+    .map((r) => durationMinutes(r.entry_time, r.exit_time))
+    .filter((v): v is number => v != null && !Number.isNaN(v));
+  const avgTradeDuration =
+    durs.length === 0 ? null : durs.reduce((a, b) => a + b, 0) / durs.length;
+
+  const planAdherence =
+    n === 0 ? 0 : round2((rows.filter((r) => r.followed_plan).length / n) * 100);
+
+  const ratings = rows.map((r) => r.rating).filter((v): v is number => v != null);
+  const avgRating = ratings.length === 0 ? null : ratings.reduce((a, b) => a + b, 0) / ratings.length;
+
+  const totalFees = rows.reduce((s, r) => s + r.fees, 0);
+
+  // Max drawdown from daily cumulative P&L
+  const dailyMap = new Map<string, number>();
+  for (const r of rows) {
+    dailyMap.set(r.trade_date, (dailyMap.get(r.trade_date) ?? 0) + r.pnl_net);
+  }
+  const dates = Array.from(dailyMap.keys()).sort();
+  let cum = 0;
+  let peak = 0;
+  let maxDd = 0;
+  for (const dt of dates) {
+    cum += dailyMap.get(dt) ?? 0;
+    peak = Math.max(peak, cum);
+    maxDd = Math.min(maxDd, cum - peak);
+  }
 
   return {
-    total_trades: parseFloat(row.total_trades ?? '0'),
-    win_rate: parseFloat(row.win_rate ?? '0'),
-    loss_rate: parseFloat(row.loss_rate ?? '0'),
-    be_rate: parseFloat(row.be_rate ?? '0'),
-    total_pnl: parseFloat(row.total_pnl ?? '0'),
-    avg_winner: parseFloat(row.avg_winner ?? '0'),
-    avg_loser: parseFloat(row.avg_loser ?? '0'),
-    largest_winner: parseFloat(row.largest_winner ?? '0'),
-    largest_loser: parseFloat(row.largest_loser ?? '0'),
-    avg_rr: parseFloat(row.avg_rr ?? '0'),
-    profit_factor: parseFloat(row.profit_factor ?? '0'),
-    expectancy: parseFloat(row.expectancy ?? '0'),
-    max_drawdown: parseFloat(ddResult.rows[0]?.max_drawdown ?? '0'),
-    avg_trade_duration: row.avg_trade_duration ? parseFloat(row.avg_trade_duration) : null,
-    plan_adherence: parseFloat(row.plan_adherence ?? '0'),
-    avg_rating: row.avg_rating ? parseFloat(row.avg_rating) : null,
-    total_fees: parseFloat(row.total_fees ?? '0'),
+    total_trades: n,
+    win_rate: winRate,
+    loss_rate: lossRate,
+    be_rate: beRate,
+    total_pnl: round2(totalPnl),
+    avg_winner: round2(avgWinner),
+    avg_loser: round2(avgLoser),
+    largest_winner: round2(largestWinner),
+    largest_loser: round2(largestLoser),
+    avg_rr: round2(avgRr),
+    profit_factor: profitFactor,
+    expectancy: round2(expectancy),
+    max_drawdown: round2(maxDd),
+    avg_trade_duration: avgTradeDuration == null ? null : round2(avgTradeDuration),
+    plan_adherence: planAdherence,
+    avg_rating: avgRating == null ? null : round2(avgRating),
+    total_fees: round2(totalFees),
   };
 }
 
 export async function getByStrategy(filters: StatFilters = {}): Promise<StrategyStats[]> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const stratSnap = await db.collection('strategies').get();
+  const nameById = new Map(stratSnap.docs.map((d) => [d.id, String(d.data().name ?? '')]));
+  const colorById = new Map(stratSnap.docs.map((d) => [d.id, String(d.data().color ?? '#3B82F6')]));
 
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      t.strategy_id,
-      s.name AS strategy_name,
-      s.color,
-      COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
-      COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
-      COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
-      CASE
-        WHEN COALESCE(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 0) = 0 THEN 0
-        ELSE ROUND(
-          COALESCE(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0)::numeric /
-          NULLIF(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 1), 2
-        )
-      END AS profit_factor
-    FROM trades t
-    LEFT JOIN strategies s ON t.strategy_id = s.id
-    ${where}
-    GROUP BY t.strategy_id, s.name, s.color
-    ORDER BY total_pnl DESC`,
-    params
-  );
+  const groups = new Map<string | null, StatRow[]>();
+  for (const r of rows) {
+    const k = r.strategy_id;
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k)!.push(r);
+  }
 
-  return result.rows.map((r) => ({
-    strategy_id: r.strategy_id,
-    strategy_name: r.strategy_name,
-    color: r.color,
-    total_trades: parseInt(r.total_trades ?? '0', 10),
-    win_rate: parseFloat(r.win_rate ?? '0'),
-    total_pnl: parseFloat(r.total_pnl ?? '0'),
-    avg_rr: parseFloat(r.avg_rr ?? '0'),
-    profit_factor: parseFloat(r.profit_factor ?? '0'),
-  }));
+  const out: StrategyStats[] = [];
+  for (const [strategyId, list] of groups) {
+    const tpSl = list.filter((r) => r.outcome === 'TP' || r.outcome === 'SL');
+    const tp = list.filter((r) => r.outcome === 'TP');
+    const sl = list.filter((r) => r.outcome === 'SL');
+    const winRate =
+      tpSl.length === 0 ? 0 : round2((tp.length / tpSl.length) * 100);
+    const totalPnl = list.reduce((s, r) => s + r.pnl_net, 0);
+    const rrVals = list.map((r) => r.rr_actual).filter((v): v is number => v != null);
+    const avgRr = rrVals.length === 0 ? 0 : rrVals.reduce((a, b) => a + b, 0) / rrVals.length;
+    const sumTp = tp.reduce((s, r) => s + r.pnl_net, 0);
+    const sumSlAbs = Math.abs(sl.reduce((s, r) => s + r.pnl_net, 0));
+    const profitFactor = sumSlAbs === 0 ? 0 : round2(sumTp / sumSlAbs);
+
+    out.push({
+      strategy_id: strategyId,
+      strategy_name: strategyId ? nameById.get(strategyId) ?? null : null,
+      color: strategyId ? colorById.get(strategyId) ?? null : null,
+      total_trades: list.length,
+      win_rate: winRate,
+      total_pnl: round2(totalPnl),
+      avg_rr: round2(avgRr),
+      profit_factor: profitFactor,
+    });
+  }
+
+  out.sort((a, b) => b.total_pnl - a.total_pnl);
+  return out;
 }
 
 export async function getBySymbol(filters: StatFilters = {}): Promise<SymbolStats[]> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const groups = new Map<string, StatRow[]>();
+  for (const r of rows) {
+    if (!groups.has(r.symbol)) groups.set(r.symbol, []);
+    groups.get(r.symbol)!.push(r);
+  }
 
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      t.symbol,
-      COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
-      COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
-      COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
-      CASE
-        WHEN COALESCE(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 0) = 0 THEN 0
-        ELSE ROUND(
-          COALESCE(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0)::numeric /
-          NULLIF(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 1), 2
-        )
-      END AS profit_factor
-    FROM trades t
-    ${where}
-    GROUP BY t.symbol
-    ORDER BY total_pnl DESC`,
-    params
-  );
-
-  return result.rows.map((r) => ({
-    symbol: r.symbol!,
-    total_trades: parseInt(r.total_trades ?? '0', 10),
-    win_rate: parseFloat(r.win_rate ?? '0'),
-    total_pnl: parseFloat(r.total_pnl ?? '0'),
-    avg_rr: parseFloat(r.avg_rr ?? '0'),
-    profit_factor: parseFloat(r.profit_factor ?? '0'),
-  }));
+  const out: SymbolStats[] = [];
+  for (const [symbol, list] of groups) {
+    const tpSl = list.filter((x) => x.outcome === 'TP' || x.outcome === 'SL');
+    const tp = list.filter((x) => x.outcome === 'TP');
+    const sl = list.filter((x) => x.outcome === 'SL');
+    const winRate =
+      tpSl.length === 0 ? 0 : round2((tp.length / tpSl.length) * 100);
+    const totalPnl = list.reduce((s, r) => s + r.pnl_net, 0);
+    const rrVals = list.map((r) => r.rr_actual).filter((v): v is number => v != null);
+    const avgRr = rrVals.length === 0 ? 0 : rrVals.reduce((a, b) => a + b, 0) / rrVals.length;
+    const sumTp = tp.reduce((s, r) => s + r.pnl_net, 0);
+    const sumSlAbs = Math.abs(sl.reduce((s, r) => s + r.pnl_net, 0));
+    const profitFactor = sumSlAbs === 0 ? 0 : round2(sumTp / sumSlAbs);
+    out.push({
+      symbol,
+      total_trades: list.length,
+      win_rate: winRate,
+      total_pnl: round2(totalPnl),
+      avg_rr: round2(avgRr),
+      profit_factor: profitFactor,
+    });
+  }
+  out.sort((a, b) => b.total_pnl - a.total_pnl);
+  return out;
 }
 
 export async function getBySession(filters: StatFilters = {}): Promise<SessionStats[]> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const groups = new Map<string, StatRow[]>();
+  for (const r of rows) {
+    const key = r.session ?? 'null';
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key)!.push(r);
+  }
 
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      t.session,
-      COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
-      COALESCE(SUM(t.pnl_net), 0) AS total_pnl,
-      COALESCE(AVG(t.rr_actual), 0) AS avg_rr,
-      CASE
-        WHEN COALESCE(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 0) = 0 THEN 0
-        ELSE ROUND(
-          COALESCE(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'TP'), 0)::numeric /
-          NULLIF(ABS(SUM(t.pnl_net) FILTER (WHERE t.outcome = 'SL')), 1), 2
-        )
-      END AS profit_factor
-    FROM trades t
-    ${where}
-    GROUP BY t.session
-    ORDER BY total_pnl DESC`,
-    params
-  );
-
-  return result.rows.map((r) => ({
-    session: r.session as SessionStats['session'],
-    total_trades: parseInt(r.total_trades ?? '0', 10),
-    win_rate: parseFloat(r.win_rate ?? '0'),
-    total_pnl: parseFloat(r.total_pnl ?? '0'),
-    avg_rr: parseFloat(r.avg_rr ?? '0'),
-    profit_factor: parseFloat(r.profit_factor ?? '0'),
-  }));
+  const out: SessionStats[] = [];
+  for (const [key, list] of groups) {
+    const session = key === 'null' ? null : (key as TradingSession);
+    const tpSl = list.filter((x) => x.outcome === 'TP' || x.outcome === 'SL');
+    const tp = list.filter((x) => x.outcome === 'TP');
+    const sl = list.filter((x) => x.outcome === 'SL');
+    const winRate =
+      tpSl.length === 0 ? 0 : round2((tp.length / tpSl.length) * 100);
+    const totalPnl = list.reduce((s, r) => s + r.pnl_net, 0);
+    const rrVals = list.map((r) => r.rr_actual).filter((v): v is number => v != null);
+    const avgRr = rrVals.length === 0 ? 0 : rrVals.reduce((a, b) => a + b, 0) / rrVals.length;
+    const sumTp = tp.reduce((s, r) => s + r.pnl_net, 0);
+    const sumSlAbs = Math.abs(sl.reduce((s, r) => s + r.pnl_net, 0));
+    const profitFactor = sumSlAbs === 0 ? 0 : round2(sumTp / sumSlAbs);
+    out.push({
+      session,
+      total_trades: list.length,
+      win_rate: winRate,
+      total_pnl: round2(totalPnl),
+      avg_rr: round2(avgRr),
+      profit_factor: profitFactor,
+    });
+  }
+  out.sort((a, b) => b.total_pnl - a.total_pnl);
+  return out;
 }
 
 export async function getByDayOfWeek(filters: StatFilters = {}): Promise<DayOfWeekStats[]> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const groups = new Map<number, { day_name: string; list: StatRow[] }>();
+  for (const r of rows) {
+    const { day_number, day_name } = isoDayMeta(r.trade_date);
+    if (!groups.has(day_number)) groups.set(day_number, { day_name, list: [] });
+    groups.get(day_number)!.list.push(r);
+  }
 
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      TO_CHAR(t.trade_date, 'Day') AS day_name,
-      EXTRACT(ISODOW FROM t.trade_date)::int AS day_number,
-      COUNT(*)::int AS total_trades,
-      ROUND(COUNT(*) FILTER (WHERE t.outcome = 'TP')::numeric / NULLIF(COUNT(*) FILTER (WHERE t.outcome IN ('TP', 'SL')), 0) * 100, 2) AS win_rate,
-      COALESCE(SUM(t.pnl_net), 0) AS total_pnl
-    FROM trades t
-    ${where}
-    GROUP BY day_name, day_number
-    ORDER BY day_number`,
-    params
-  );
-
-  return result.rows.map((r) => ({
-    day_name: (r.day_name ?? '').trim(),
-    day_number: parseInt(r.day_number ?? '0', 10),
-    total_trades: parseInt(r.total_trades ?? '0', 10),
-    win_rate: parseFloat(r.win_rate ?? '0'),
-    total_pnl: parseFloat(r.total_pnl ?? '0'),
-  }));
+  const out: DayOfWeekStats[] = [];
+  for (const [day_number, { day_name, list }] of groups) {
+    const tpSl = list.filter((x) => x.outcome === 'TP' || x.outcome === 'SL');
+    const tp = list.filter((x) => x.outcome === 'TP');
+    const winRate =
+      tpSl.length === 0 ? 0 : round2((tp.length / tpSl.length) * 100);
+    const totalPnl = list.reduce((s, r) => s + r.pnl_net, 0);
+    out.push({
+      day_name,
+      day_number,
+      total_trades: list.length,
+      win_rate: winRate,
+      total_pnl: round2(totalPnl),
+    });
+  }
+  out.sort((a, b) => a.day_number - b.day_number);
+  return out;
 }
 
 export async function getEquityCurve(filters: StatFilters = {}): Promise<EquityCurvePoint[]> {
-  const { where, params } = buildWhereClause(filters);
-
-  const result = await query<Record<string, string | null>>(
-    `WITH daily AS (
-      SELECT
-        t.trade_date AS date,
-        SUM(t.pnl_net) AS daily_pnl
-      FROM trades t
-      ${where}
-      GROUP BY t.trade_date
-      ORDER BY t.trade_date
-    ),
-    cumulative AS (
-      SELECT
-        date,
-        SUM(daily_pnl) OVER (ORDER BY date) AS cumulative_pnl
-      FROM daily
-    ),
-    with_dd AS (
-      SELECT
-        date,
-        cumulative_pnl,
-        cumulative_pnl - MAX(cumulative_pnl) OVER (ORDER BY date) AS drawdown
-      FROM cumulative
-    )
-    SELECT * FROM with_dd ORDER BY date`,
-    params
-  );
-
-  return result.rows.map((r) => ({
-    date: r.date!,
-    cumulative_pnl: parseFloat(r.cumulative_pnl ?? '0'),
-    drawdown: parseFloat(r.drawdown ?? '0'),
-  }));
+  const rows = await loadStatRows(filters);
+  const dailyMap = new Map<string, number>();
+  for (const r of rows) {
+    dailyMap.set(r.trade_date, (dailyMap.get(r.trade_date) ?? 0) + r.pnl_net);
+  }
+  const dates = Array.from(dailyMap.keys()).sort();
+  let cum = 0;
+  let peak = 0;
+  const pts: EquityCurvePoint[] = [];
+  for (const dt of dates) {
+    cum += dailyMap.get(dt) ?? 0;
+    peak = Math.max(peak, cum);
+    const drawdown = cum - peak;
+    pts.push({
+      date: dt,
+      cumulative_pnl: round2(cum),
+      drawdown: round2(drawdown),
+    });
+  }
+  return pts;
 }
 
 export async function getCalendar(filters: StatFilters = {}): Promise<CalendarEntry[]> {
-  const { where, params } = buildWhereClause(filters);
-
-  const result = await query<Record<string, string | null>>(
-    `SELECT
-      t.trade_date AS date,
-      COALESCE(SUM(t.pnl_net), 0) AS pnl_net,
-      COUNT(*)::int AS trade_count
-    FROM trades t
-    ${where}
-    GROUP BY t.trade_date
-    ORDER BY t.trade_date`,
-    params
-  );
-
-  return result.rows.map((r) => ({
-    date: r.date!,
-    pnl_net: parseFloat(r.pnl_net ?? '0'),
-    trade_count: parseInt(r.trade_count ?? '0', 10),
-  }));
+  const rows = await loadStatRows(filters);
+  const dailyMap = new Map<string, { pnl: number; count: number }>();
+  for (const r of rows) {
+    const cur = dailyMap.get(r.trade_date) ?? { pnl: 0, count: 0 };
+    cur.pnl += r.pnl_net;
+    cur.count += 1;
+    dailyMap.set(r.trade_date, cur);
+  }
+  return Array.from(dailyMap.entries())
+    .sort(([a], [b]) => a.localeCompare(b))
+    .map(([date, v]) => ({
+      date,
+      pnl_net: round2(v.pnl),
+      trade_count: v.count,
+    }));
 }
 
 export async function getStreaks(filters: StatFilters = {}): Promise<StreakStats> {
-  const { where, params } = buildWhereClause(filters);
+  const rows = await loadStatRows(filters);
+  const ordered = rows
+    .filter((r) => r.outcome !== 'BE')
+    .sort((a, b) => {
+      const d = a.trade_date.localeCompare(b.trade_date);
+      if (d !== 0) return d;
+      return a.created_at.localeCompare(b.created_at);
+    })
+    .map((r) => ({
+      result: r.outcome === 'TP' ? ('WIN' as const) : ('LOSS' as const),
+    }));
 
-  const result = await query<Record<string, string | null>>(
-    `WITH ordered AS (
-      SELECT
-        t.id,
-        t.trade_date,
-        t.created_at,
-        CASE WHEN t.outcome = 'TP' THEN 'WIN' ELSE 'LOSS' END AS result,
-        ROW_NUMBER() OVER (ORDER BY t.trade_date, t.created_at) AS rn
-      FROM trades t
-      ${where ? where + " AND t.outcome != 'BE'" : "WHERE t.outcome != 'BE'"}
-    ),
-    grouped AS (
-      SELECT
-        *,
-        rn - ROW_NUMBER() OVER (PARTITION BY result ORDER BY trade_date, created_at) AS grp
-      FROM ordered
-    ),
-    streaks AS (
-      SELECT
-        result,
-        grp,
-        COUNT(*) AS streak_len,
-        MAX(rn) AS last_rn
-      FROM grouped
-      GROUP BY result, grp
-    ),
-    max_streaks AS (
-      SELECT
-        COALESCE(MAX(streak_len) FILTER (WHERE result = 'WIN'), 0) AS max_win_streak,
-        COALESCE(MAX(streak_len) FILTER (WHERE result = 'LOSS'), 0) AS max_loss_streak
-      FROM streaks
-    ),
-    current AS (
-      SELECT result, streak_len
-      FROM streaks
-      ORDER BY last_rn DESC
-      LIMIT 1
-    )
-    SELECT
-      ms.max_win_streak,
-      ms.max_loss_streak,
-      COALESCE(c.result, 'NONE') AS current_streak_type,
-      COALESCE(c.streak_len, 0) AS current_streak_count
-    FROM max_streaks ms
-    LEFT JOIN current c ON TRUE`,
-    params
-  );
-
-  if (result.rows.length === 0) {
+  if (ordered.length === 0) {
     return {
       max_win_streak: 0,
       max_loss_streak: 0,
@@ -357,11 +377,38 @@ export async function getStreaks(filters: StatFilters = {}): Promise<StreakStats
     };
   }
 
-  const row = result.rows[0];
+  let maxWin = 0;
+  let maxLoss = 0;
+  let cur: 'WIN' | 'LOSS' = ordered[0].result;
+  let len = 1;
+
+  const flush = () => {
+    if (cur === 'WIN') maxWin = Math.max(maxWin, len);
+    else maxLoss = Math.max(maxLoss, len);
+  };
+
+  for (let i = 1; i < ordered.length; i++) {
+    if (ordered[i].result === cur) {
+      len++;
+    } else {
+      flush();
+      cur = ordered[i].result;
+      len = 1;
+    }
+  }
+  flush();
+
+  const last = ordered[ordered.length - 1].result;
+  let currentLen = 1;
+  for (let i = ordered.length - 2; i >= 0; i--) {
+    if (ordered[i].result === last) currentLen++;
+    else break;
+  }
+
   return {
-    max_win_streak: parseInt(row.max_win_streak ?? '0', 10),
-    max_loss_streak: parseInt(row.max_loss_streak ?? '0', 10),
-    current_streak_type: (row.current_streak_type as StreakStats['current_streak_type']) ?? 'NONE',
-    current_streak_count: parseInt(row.current_streak_count ?? '0', 10),
+    max_win_streak: maxWin,
+    max_loss_streak: maxLoss,
+    current_streak_type: last,
+    current_streak_count: currentLen,
   };
 }

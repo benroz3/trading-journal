@@ -42,6 +42,8 @@ export interface Trade {
   fees: string;
   pnl_net: string | null;
   strategy_id: string | null;
+  /** Present on list/detail responses when joined from strategies */
+  strategy_name?: string;
   asset_class: AssetClass | null;
   session: TradingSession | null;
   setup_notes: string | null;
