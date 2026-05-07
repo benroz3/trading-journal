@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useTrade, useTrades, useCreateTrade, useUpdateTrade } from '../hooks/useTrades';
 import { useStrategies } from '../hooks/useStrategies';
@@ -17,6 +17,7 @@ import Input from '../components/ui/Input';
 import Select from '../components/ui/Select';
 import ImageUpload from '../components/ImageUpload/ImageUpload';
 import styles from './TradeForm.module.scss';
+import { inferTradingSessionFromEntryTime } from '../utils/inferTradingSession';
 
 interface FormState {
   trade_date: string;
@@ -115,6 +116,12 @@ function TradeForm() {
     images: true,
   });
 
+  const prevEntryTimeRef = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    prevEntryTimeRef.current = undefined;
+  }, [tradeId]);
+
   // Pre-fill form in edit mode
   useEffect(() => {
     if (!existingTrade) return;
@@ -143,7 +150,10 @@ function TradeForm() {
       pnl_net: t.pnl_net != null ? String(t.pnl_net) : '',
       tick_size: tickSize,
       tick_value: tickValue,
-      session: t.session || '',
+      session:
+        t.session ||
+        inferTradingSessionFromEntryTime(t.entry_time || '') ||
+        '',
       asset_class: t.asset_class || '',
       entry_time: t.entry_time || '',
       exit_time: t.exit_time || '',
@@ -155,6 +165,22 @@ function TradeForm() {
       review_notes: t.review_notes || '',
     });
   }, [existingTrade]);
+
+  // When entry time changes (after initial sync), set session from UTC trading bands unless user only edits other fields before ref warms up.
+  useEffect(() => {
+    const cur = form.entry_time;
+    if (prevEntryTimeRef.current === undefined) {
+      prevEntryTimeRef.current = cur;
+      return;
+    }
+    if (prevEntryTimeRef.current === cur) return;
+    prevEntryTimeRef.current = cur;
+
+    if (!cur?.trim()) return;
+    const inferred = inferTradingSessionFromEntryTime(cur);
+    if (!inferred) return;
+    setForm((p) => ({ ...p, session: inferred }));
+  }, [form.entry_time]);
 
   // Auto-fill from symbol preset
   const handleSymbolChange = useCallback((symbol: string) => {
@@ -578,8 +604,8 @@ function TradeForm() {
             <div className={styles.sectionBody}>
               <div className={styles.fieldGrid}>
                 <Select
-                  label="Session"
-                  options={[{ value: '', label: 'Select...' }, ...SESSION_OPTIONS]}
+                  label="Session (UTC bands from entry time if left blank)"
+                  options={[{ value: '', label: 'Auto from entry time…' }, ...SESSION_OPTIONS]}
                   value={form.session}
                   onChange={(e) => updateField('session', e.target.value)}
                 />

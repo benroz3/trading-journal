@@ -9,6 +9,7 @@ import {
   stripUndefined,
 } from '../utils/firestoreNormalize';
 import * as imagesService from './images.service';
+import { applySessionFromEntryTimeIfUnset } from '../utils/inferTradingSession';
 
 const COL = 'trades';
 
@@ -200,6 +201,7 @@ export async function getById(id: string): Promise<TradeWithImages | null> {
 export async function create(data: CreateTradeInput): Promise<Trade> {
   const id = crypto.randomUUID();
   const mutableData: Record<string, unknown> = { ...data };
+  applySessionFromEntryTimeIfUnset(mutableData, data.session);
   computeFields(mutableData);
 
   const payload = mergedToFirestore(mutableData);
@@ -262,6 +264,7 @@ export async function update(id: string, data: UpdateTradeInput): Promise<Trade 
     merged.pnl_net = undefined as unknown;
   }
 
+  applySessionFromEntryTimeIfUnset(merged, data.session);
   computeFields(merged);
 
   const payload = mergedToFirestore(merged);

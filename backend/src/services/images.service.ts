@@ -1,27 +1,25 @@
 import crypto from 'crypto';
 import sharp from 'sharp';
 import { FieldValue } from 'firebase-admin/firestore';
-import { bucket, db } from '../config/firebase';
+import { db } from '../config/firebase';
 import { TradeImage } from '../types';
 import { tradeImageFromFirestore } from '../utils/firestoreNormalize';
 
 const IMAGES = 'trade_images';
 
+/** Firestore doc max ~1 MiB; leave room for other fields. */
+const MAX_EMBEDDED_WEBP_BYTES = 720 * 1024;
+
+function bufferFromFirestoreBytes(raw: unknown): Buffer | null {
+  if (raw == null) return null;
+  if (Buffer.isBuffer(raw)) return raw;
+  if (raw instanceof Uint8Array) return Buffer.from(raw);
+  return null;
+}
+
 export async function deleteAllForTrade(tradeId: string): Promise<void> {
   const snap = await db.collection(IMAGES).where('trade_id', '==', tradeId).get();
-  await Promise.all(
-    snap.docs.map(async (doc) => {
-      const path = doc.data().storage_path as string | undefined;
-      if (path) {
-        try {
-          await bucket.file(path).delete();
-        } catch {
-          /* ignore missing file */
-        }
-      }
-      await doc.ref.delete();
-    })
-  );
+  await Promise.all(snap.docs.map((doc) => doc.ref.delete()));
 }
 
 export async function upload(
@@ -42,20 +40,21 @@ export async function upload(
   const results: TradeImage[] = [];
 
   for (const file of files) {
-    const id = crypto.randomUUID();
-    const filename = `${id}.webp`;
-    const storagePath = `trade-images/${tradeId}/${filename}`;
-
     const processed = await sharp(file.buffer)
       .resize(1920, 1080, { fit: 'inside', withoutEnlargement: true })
-      .webp({ quality: 80 })
+      .webp({ quality: 75 })
       .toBuffer();
 
-    await bucket.file(storagePath).save(processed, {
-      contentType: 'image/webp',
-      resumable: false,
-      metadata: { cacheControl: 'public, max-age=31536000' },
-    });
+    if (processed.length > MAX_EMBEDDED_WEBP_BYTES) {
+      const err = new Error(
+        `Image is still too large after compression (${Math.round(processed.length / 1024)} KB). Max ~${Math.round(MAX_EMBEDDED_WEBP_BYTES / 1024)} KB per image for free-tier Firestore. Try a smaller screenshot.`
+      ) as Error & { statusCode: number };
+      err.statusCode = 413;
+      throw err;
+    }
+
+    const id = crypto.randomUUID();
+    const filename = `${id}.webp`;
 
     const doc = {
       trade_id: tradeId,
@@ -64,7 +63,7 @@ export async function upload(
       mime_type: 'image/webp',
       file_size: processed.length,
       sort_order: sortOrder++,
-      storage_path: storagePath,
+      webp_bytes: processed,
       created_at: FieldValue.serverTimestamp(),
     };
 
@@ -80,32 +79,24 @@ export async function remove(id: string): Promise<boolean> {
   const ref = db.collection(IMAGES).doc(id);
   const doc = await ref.get();
   if (!doc.exists) return false;
-
-  const storagePath = doc.data()!.storage_path as string | undefined;
-  if (storagePath) {
-    try {
-      await bucket.file(storagePath).delete();
-    } catch {
-      console.warn(`[Images] Failed to delete storage object ${storagePath}`);
-    }
-  }
-
   await ref.delete();
   return true;
 }
 
-async function getStoragePath(id: string): Promise<string | null> {
+export async function getImageForServe(
+  id: string
+): Promise<{ buffer: Buffer; mimeType: string } | null> {
   const doc = await db.collection(IMAGES).doc(id).get();
   if (!doc.exists) return null;
-  return (doc.data()!.storage_path as string) ?? null;
-}
 
-export async function getSignedReadUrl(id: string): Promise<string | null> {
-  const path = await getStoragePath(id);
-  if (!path) return null;
-  const [url] = await bucket.file(path).getSignedUrl({
-    action: 'read',
-    expires: Date.now() + 3600 * 1000,
-  });
-  return url;
+  const data = doc.data()!;
+  const buf = bufferFromFirestoreBytes(data.webp_bytes);
+  if (!buf) return null;
+
+  const mimeType =
+    typeof data.mime_type === 'string' && data.mime_type.startsWith('image/')
+      ? data.mime_type
+      : 'image/webp';
+
+  return { buffer: buf, mimeType };
 }

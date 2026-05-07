@@ -7,9 +7,6 @@ const envSchema = z
       .default('4000')
       .transform((val) => parseInt(val, 10))
       .pipe(z.number().int().positive()),
-    FIREBASE_STORAGE_BUCKET: z
-      .string()
-      .min(1, 'FIREBASE_STORAGE_BUCKET is required (e.g. your-project-id.appspot.com)'),
     FIREBASE_SERVICE_ACCOUNT_JSON: z.string().optional(),
     GOOGLE_APPLICATION_CREDENTIALS: z.string().optional(),
   })

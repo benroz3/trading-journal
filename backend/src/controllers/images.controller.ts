@@ -43,14 +43,15 @@ export async function serve(
   next: NextFunction
 ): Promise<void> {
   try {
-    const url = await imagesService.getSignedReadUrl(req.params.id);
-    if (!url) {
+    const payload = await imagesService.getImageForServe(req.params.id);
+    if (!payload) {
       res.status(404).json({ error: 'Image not found' });
       return;
     }
 
-    res.setHeader('Cache-Control', 'private, max-age=300');
-    res.redirect(302, url);
+    res.setHeader('Content-Type', payload.mimeType);
+    res.setHeader('Cache-Control', 'private, max-age=3600');
+    res.send(payload.buffer);
   } catch (err) {
     next(err);
   }
